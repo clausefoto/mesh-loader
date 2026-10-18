@@ -40,7 +40,8 @@ def check_partition_binary(path: Path) -> None:
     found = {}
     for i in range(0, len(raw), 32):
         entry = raw[i:i + 32]
-        if len(entry) < 32 or entry[:2] == b"\xff\xff":
+        if len(entry) < 32 or entry[:2] in (b"\xff\xff", b"\xeb\xeb"):
+            # 0xEBEB marks the ESP-IDF partition-table MD5 checksum record.
             break
         magic, kind, subtype, offset, size, name, _flags = struct.unpack(
             "<HBBII16sI", entry
