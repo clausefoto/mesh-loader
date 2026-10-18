@@ -1,3 +1,9 @@
 .direnv
 .platformio
 build/
+
+# Local troubleshooting files and private device backups
+backups/
+build-error.txt
+meshcore-v1.18-clean/
+meshcore-v1.18-test/
