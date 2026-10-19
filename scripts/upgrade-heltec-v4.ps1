@@ -36,7 +36,7 @@ function Invoke-Esptool([string[]]$Commands) {
 $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("meshloader-layout-" + [guid]::NewGuid().ToString("N") + ".bin")
 try {
     Write-Host "Reading actual device partition table from $Port..."
-    Invoke-Esptool @("read-flash", "0x8000", "0x1000", $temp)
+    Invoke-Esptool -Commands @("read-flash", "0x8000", "0x1000", $temp)
     $raw = [System.IO.File]::ReadAllBytes($temp)
     $expected = @{
         nvs       = @(0x01,0x02,0x9000,0x6000)
@@ -90,7 +90,7 @@ try {
         foreach ($part in $parts) {
             $dest = Join-Path $backupDir $part[0]
             Write-Host "Backing up $($part[0])..."
-            Invoke-Esptool @("read-flash", $part[1], $part[2], $dest)
+            Invoke-Esptool -Commands @("read-flash", $part[1], $part[2], $dest)
             if ((Get-Item -LiteralPath $dest).Length -ne $part[3]) {
                 throw "Incomplete backup: $dest"
             }
@@ -98,11 +98,11 @@ try {
         Write-Host "Backups verified: $backupDir"
         if ($coreFile) {
             Write-Host "Flashing MeshCore application at 0xA0000..."
-            Invoke-Esptool @("write-flash", "0xA0000", $coreFile)
+            Invoke-Esptool -Commands @("write-flash", "0xA0000", $coreFile)
         }
         if ($tasticFile) {
             Write-Host "Flashing Meshtastic application at 0x3A0000..."
-            Invoke-Esptool @("write-flash", "0x3A0000", $tasticFile)
+            Invoke-Esptool -Commands @("write-flash", "0x3A0000", $tasticFile)
         }
         Write-Host "Application-only update complete. Reset the device and test both apps."
     }
