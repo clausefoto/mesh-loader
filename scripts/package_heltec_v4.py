@@ -54,19 +54,29 @@ def main():
     mt_dir = ROOT / "build/meshtastic/.pio/build/heltec-v4"
     mc_path = ROOT / "build/meshcore/.pio/build/heltec_v4_companion_radio_ble/firmware.bin"
     loader_path = ROOT / "loader/.pio/build/heltec_v4/firmware.bin"
-    # Refuse multiple candidates rather than silently selecting a stale build.
-    mt_apps = [p for p in mt_dir.glob("firmware-heltec-v4-*.bin") if not p.name.endswith(".factory.bin")]
-    mt_fs = list(mt_dir.glob("littlefs-heltec-v4-*.bin"))
-    if len(mt_apps) != 1 or len(mt_fs) != 1:
-        raise RuntimeError(f"Need exactly one Meshtastic app and FS image, found {len(mt_apps)} and {len(mt_fs)}")
-    app_name = mt_apps[0].name
-    if not app_name.startswith(f"firmware-heltec-v4-{MESHTASTIC_VERSION}."):
-        raise RuntimeError(f"Unexpected Meshtastic build version: {app_name}")
+    # Old build artifacts can coexist after a rebuild. Select the newest
+    # Meshtastic application, but only alongside its SAME-SUFFIX filesystem.
+    app_prefix = f"firmware-heltec-v4-{MESHTASTIC_VERSION}."
+    candidates = sorted(
+        (p for p in mt_dir.glob(f"{app_prefix}*.bin")
+         if not p.name.endswith(".factory.bin")),
+        key=lambda p: p.stat().st_mtime_ns,
+        reverse=True,
+    )
+    if not candidates:
+        raise RuntimeError("No Meshtastic application image for the expected version")
+    app = candidates[0]
+    suffix = app.name[len("firmware-heltec-v4-"):]
+    filesystem = mt_dir / f"littlefs-heltec-v4-{suffix}"
+    if not filesystem.is_file():
+        raise RuntimeError(f"No matching LittleFS image for {app.name}: expected {filesystem.name}")
+    print(f"Selected Meshtastic: {app.name} (newest matching build)")
+    print(f"Selected LittleFS:   {filesystem.name}")
     mc = valid_app(mc_path, APP_LIMIT)
-    mt = valid_app(mt_apps[0], APP_LIMIT)
+    mt = valid_app(app, APP_LIMIT)
     loader = valid_app(loader_path, 0x7D000)
     boot = valid_app(file_at(mt_dir / "bootloader.bin"), 0x8000)
-    fs = file_at(mt_fs[0]).read_bytes()
+    fs = file_at(filesystem).read_bytes()
     if len(fs) != 0x4B0000:
         raise RuntimeError("Meshtastic filesystem image is not 0x4B0000 bytes")
 
@@ -88,8 +98,8 @@ def main():
         "0x8000", str(partitions),
         "0x20000", str(loader_path),
         "0xA0000", str(mc_path),
-        "0x3A0000", str(mt_apps[0]),
-        "0xB50000", str(mt_fs[0])
+        "0x3A0000", str(app),
+        "0xB50000", str(filesystem)
     ], check=True)
 
     image = merged.read_bytes()
@@ -109,7 +119,7 @@ def main():
     core_out = out / f"heltec-v4-meshcore-v{MESHCORE_VERSION}-update.bin"
     tastic_out = out / f"heltec-v4-meshtastic-v{MESHTASTIC_VERSION}-update.bin"
     shutil.copyfile(mc_path, core_out)
-    shutil.copyfile(mt_apps[0], tastic_out)
+    shutil.copyfile(app, tastic_out)
     artifacts = [merged, core_out, tastic_out]
     checksums = out / "SHA256SUMS.txt"
     checksums.write_text("".join(
