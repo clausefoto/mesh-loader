@@ -12,18 +12,15 @@ This project pulls Meshtastic and Meshcore source code and patches it to be able
 
 Adding a config for your device is very easy so long as it has enough flash (~8MB+).
 
-## Flashing Precompiled Firmware
+## Flashing precompiled firmware
 
-1. Download the latest firmware for your device from [releases](https://github.com/eliahreeves/mesh-loader/releases/latest).
+**Warning: flashing a full merged image to address `0x0` overwrites the entire flash and may permanently erase MeshCore and Meshtastic identities and settings.** It is for **fresh installations only**, not upgrades.
 
-2. Flash the firmware to address `0x0000`. I recommend using esptool:
-```bash
-esptool write-flash 0x0000 <firmware name>.bin
-```
-If you prefer a web flasher use a generic one like [EspConnect](https://thelastoutpostworkshop.github.io/ESPConnect/) or [EspWebTool](https://esptool.spacehuhn.com/) not the meshcore/meshtastic web flasher.
-## Heltec V4 settings-preserving MeshCore upgrades
+For an existing Heltec V4 Mesh Loader installation, use the **application-only** files and the [safe PowerShell upgrade script and release guide](docs/heltec-v4-release.md). The script checks the board's partition table, defaults to a read-only dry run, and requires `-Flash` to write. It backs up both application filesystems and NVS before updating. Only the Heltec V4 layout is supported by this script.
 
-For Windows/Git Bash builds and application-only updates that avoid overwriting NVS and MeshCore storage, see [Heltec V4 MeshCore update guide](docs/heltec-v4-meshcore-update.md). The guide includes the Python 3.12 build command, generated partition-table validation, backups, and verified flash address. The standard merged image remains intended for first installation.
+To build release artifacts from validated local firmware binaries, run `py -3.12 scripts/package_heltec_v4.py`. The package includes a full fresh-install image, separate MeshCore and Meshtastic app upgrades, and SHA-256 checksums. See the [Heltec V4 release guide](docs/heltec-v4-release.md).
+
+For manual MeshCore build and backup details, see [Heltec V4 MeshCore update guide](docs/heltec-v4-meshcore-update.md).
 
 ## Bluetooth
 Bluetooth can be a little weird if you have paired with the device before. If you have trouble make sure to forget the device from your phone. I have found mechtastic to be especially annoying, but reinstalling the app fixed it for me. After the first pair bluetooth works with no issues.
@@ -91,10 +88,10 @@ Each layout directory must contain these four files:
 4.  `partitions-meshtastic.csv`: The build-time partition table specifically for Meshtastic.
 
 ## How Does it Work?
-This works by using Over-the-Air partitions meant for uploading firmware in deployment. The Esp32 chooses a partition to boot into, but the firmware in each partition never mark themselves as valid forcing a rollback to the loader partition on boot.
+This works by using Over-the-Air partitions meant for uploading firmware in deployment. The Esp32 chooses a partition to boot into, but the patched firmware applications select the factory Loader as the **next boot target** during startup. The current application keeps running; after a reset, the Loader menu returns.
 
 There are three patches:
-1. Loader patches to make the esp32 not mark partitions as valid.
+1. Boot-selection patches to return to the factory Loader on the next reset.
 2. File system patches to make the firmwares not conflict.
 3. Bluetooth patch to offset the Meshcore MAC address for easier connecting.
 
