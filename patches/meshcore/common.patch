@@ -24,7 +24,7 @@ index 839d4958..3008d9b1 100644
    Serial.begin(115200);
    board.begin();
  
-@@ -178,7 +198,7 @@ void setup() {
+@@ -178,7 +188,7 @@ void setup() {
    store.begin();
    the_mesh.begin();
  #elif defined(ESP32)
