@@ -65,8 +65,19 @@ def main() -> None:
         SOURCE, TARGET,
         ignore=shutil.ignore_patterns(".git", ".pio", "__pycache__"),
     )
-    run("git", "apply", "--check", str(PATCH), cwd=TARGET)
-    run("git", "apply", str(PATCH), cwd=TARGET)
+    patch_dir = TARGET.relative_to(ROOT).as_posix()
+    run("git", "apply", "--check", f"--directory={patch_dir}", str(PATCH), cwd=ROOT)
+    run("git", "apply", f"--directory={patch_dir}", str(PATCH), cwd=ROOT)
+
+    checks = {
+        TARGET / "examples/companion_radio/main.cpp":
+            "esp_ota_set_boot_partition(loader_partition)",
+        TARGET / "src/helpers/esp32/SerialBLEInterface.cpp":
+            "setDeviceAddress(",
+    }
+    for path, marker in checks.items():
+        if marker not in path.read_text(encoding="utf-8"):
+            raise RuntimeError(f"Required patch missing: {path}")
     shutil.copy2(CSV, TARGET / "partitions.csv")
 
     ini = TARGET / "variants" / "heltec_v4" / "platformio.ini"

@@ -61,3 +61,32 @@ index 3f95e692..b603ea09 100644
      // for future use, sub-classes SHOULD call this from their begin()
      startup_reason = BD_STARTUP_NORMAL;    
  
+diff --git a/src/helpers/esp32/SerialBLEInterface.cpp b/src/helpers/esp32/SerialBLEInterface.cpp
+index 6371cf3..bbf6cae 100644
+--- a/src/helpers/esp32/SerialBLEInterface.cpp
++++ b/src/helpers/esp32/SerialBLEInterface.cpp
+@@ -51,6 +51,24 @@ void SerialBLEInterface::begin(const char* prefix, char* name, uint32_t pin_code
+   pRxCharacteristic->setCallbacks(this);
+ 
+   pServer->getAdvertising()->addServiceUUID(SERVICE_UUID);
++
++  // Give MeshCore a separate, stable random-static BLE address.
++  uint8_t factory_mac[6];
++  if (esp_efuse_mac_get_default(factory_mac) == ESP_OK) {
++    esp_bd_addr_t meshcore_ble_addr;
++    memcpy(meshcore_ble_addr, factory_mac, 6);
++
++    // Mark this as a static random BLE address.
++    meshcore_ble_addr[0] = (meshcore_ble_addr[0] & 0x3F) | 0xC0;
++
++    // Make it distinct from the factory-derived BLE address.
++    meshcore_ble_addr[5] ^= 0xA5;
++
++    pServer->getAdvertising()->setDeviceAddress(
++        meshcore_ble_addr, BLE_ADDR_TYPE_RANDOM
++    );
++  }
++
+ }
+ 
+ // -------- BLESecurityCallbacks methods
